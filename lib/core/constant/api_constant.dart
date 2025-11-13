@@ -8,11 +8,11 @@ class ApiConstants {
   // API Endpoints
   static const String login = '/restaurants/auth/login/email';
   static const String register = '/restaurants/auth/signup/email';
-  static const String otpLoginSend = '/otp/send';
-  static const String otpLoginVerify = '/otp/verify';
+  static const String sendPhoneOtp = '/otp/send';
+  static const String verifyPhoneOtp = '/otp/verify';
 
   // ✅ Use your actual values from /clients/generate
-  static const clientId = '7f60340e-c965-45e9-b725-0288530d3681';
+  static const clientId = '0fb4e7a0-8ca8-46a3-8ffe-0f4a078bb811';
   static const clientSecret = ''; 
 
   // Restaurant Profile
@@ -20,8 +20,8 @@ class ApiConstants {
   static String updateRestaurant(String id) => '/api/restaurants/$id';
 
   // Forgot Password
-  static const String sendOtp = '/api/restaurants/forgot-password/send-otp';
-  static const String verifyOtp = '/api/restaurants/forgot-password/verify-otp';
+  static const String sendForgotPasswordOtp = '/api/restaurants/forgot-password/send-otp';
+  static const String verifyForgotPasswordOtp = '/api/restaurants/forgot-password/verify-otp';
   static const String resetPassword =
       '/api/restaurants/forgot-password/reset-password';
 

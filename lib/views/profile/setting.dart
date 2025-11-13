@@ -112,7 +112,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _restaurant?.restName ?? 'Restaurant Name',
+                                _restaurant?.restaurantName ?? 'Restaurant Name',
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w600,

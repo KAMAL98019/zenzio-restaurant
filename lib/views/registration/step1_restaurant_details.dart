@@ -88,6 +88,36 @@ class _Step1RestaurantDetailsState extends State<Step1RestaurantDetails> {
           ),
           const SizedBox(height: 16),
 
+          CustomTextField(
+            controller: viewModel.cityController,
+            label: 'City',
+            hint: 'Enter city',
+          ),
+          const SizedBox(height: 16),
+
+          CustomTextField(
+            controller: viewModel.stateController,
+            label: 'State',
+            hint: 'Enter state',
+          ),
+          const SizedBox(height: 16),
+
+          CustomTextField(
+            controller: viewModel.pincodeController,
+            label: 'Pincode',
+            hint: 'Enter pincode',
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          ),
+          const SizedBox(height: 16),
+
+          CustomTextField(
+            controller: viewModel.landmarkController,
+            label: 'Landmark (Optional)',
+            hint: 'Enter nearby landmark',
+          ),
+          const SizedBox(height: 16),
+
           // Restaurant Address (auto-filled + editable)
           Stack(
             alignment: Alignment.centerRight,

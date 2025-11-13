@@ -5,6 +5,7 @@ import 'package:zenzio_restaurant/models/restaurant.dart';
 import 'package:zenzio_restaurant/services/restaurant_service.dart';
 import 'package:zenzio_restaurant/viewmodels/dashboard_viewmodel.dart';
 import 'package:zenzio_restaurant/widgets/custom_text_field.dart';
+import 'package:zenzio_restaurant/models/address.dart';
 
 class EditRestaurantProfileScreen extends StatefulWidget {
   const EditRestaurantProfileScreen({Key? key}) : super(key: key);
@@ -21,18 +22,25 @@ class _EditRestaurantProfileScreenState
 
   final TextEditingController _restaurantNameController =
       TextEditingController();
-  final TextEditingController _contactPersonNameController =
-      TextEditingController();
-  final TextEditingController _contactEmailController =
-      TextEditingController();
-  final TextEditingController _contactMobileNumberController =
-      TextEditingController();
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneNumberController = TextEditingController();
   final TextEditingController _restaurantDescriptionController =
       TextEditingController();
   final TextEditingController _averageCostForTwoController =
       TextEditingController();
   final TextEditingController _fullAddressController =
       TextEditingController();
+  final TextEditingController _landmarkController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _stateController = TextEditingController();
+  final TextEditingController _pincodeController = TextEditingController();
+  final TextEditingController _restContactNumberController =
+      TextEditingController();
+  final TextEditingController _restEmailController = TextEditingController();
+  final TextEditingController _restWebsiteController = TextEditingController();
+  final TextEditingController _socialMediaController = TextEditingController();
 
   String? _restaurantId;
   bool _isLoading = false;
@@ -56,12 +64,21 @@ class _EditRestaurantProfileScreenState
     final response = await _restaurantService.getRestaurantById(_restaurantId!);
     if (response.success && response.data != null) {
       final restaurant = response.data!;
-      _restaurantNameController.text = restaurant.restName;
-      _contactPersonNameController.text = restaurant.contactPersonName;
-      _contactEmailController.text = restaurant.contactEmail;
-      _contactMobileNumberController.text = restaurant.contactNumber;
+      _restaurantNameController.text = restaurant.restaurantName;
+      _firstNameController.text = restaurant.firstName;
+      _lastNameController.text = restaurant.lastName;
+      _emailController.text = restaurant.email;
+      _phoneNumberController.text = restaurant.phoneNumber;
+      _restContactNumberController.text = restaurant.restContactNumber;
+      _restEmailController.text = restaurant.restEmail;
+      _restWebsiteController.text = restaurant.restWebsite ?? '';
+      _socialMediaController.text = restaurant.socialMedia ?? '';
       _averageCostForTwoController.text = restaurant.avgCostTwo;
-      _fullAddressController.text = restaurant.restAddress;
+      _fullAddressController.text = restaurant.address.address;
+      _landmarkController.text = restaurant.address.landMark ?? '';
+      _cityController.text = restaurant.address.city;
+      _stateController.text = restaurant.address.state;
+      _pincodeController.text = restaurant.address.pincode;
     } else {
       debugPrint('Failed to load restaurant data: ${response.message}');
     }
@@ -80,24 +97,23 @@ class _EditRestaurantProfileScreenState
 
     final updatedRestaurant = Restaurant(
       id: _restaurantId!,
-      restName: _restaurantNameController.text,
-      restAddress: _fullAddressController.text,
+      restaurantName: _restaurantNameController.text,
       avgCostTwo: _averageCostForTwoController.text,
       restLogo: _dashboardViewModel.currentRestaurant?.restLogo ?? '',
-      contactPersonName: _contactPersonNameController.text,
-      contactEmail: _contactEmailController.text,
-      contactNumber: _contactMobileNumberController.text,
+      firstName: _firstNameController.text,
+      lastName: _lastNameController.text,
+      email: _emailController.text,
+      phoneNumber: _phoneNumberController.text,
+      restContactNumber: _restContactNumberController.text,
+      restEmail: _restEmailController.text,
+      restWebsite: _restWebsiteController.text.isEmpty ? null : _restWebsiteController.text,
+      socialMedia: _socialMediaController.text.isEmpty ? null : _socialMediaController.text,
+      cuisines: _dashboardViewModel.currentRestaurant?.cuisines ?? [],
+      categories: _dashboardViewModel.currentRestaurant?.categories ?? [],
       operationalHours:
           _dashboardViewModel.currentRestaurant?.operationalHours ?? [],
-      fssaiCertificate:
-          _dashboardViewModel.currentRestaurant?.fssaiCertificate ?? '',
-      gstCertificate:
-          _dashboardViewModel.currentRestaurant?.gstCertificate ?? '',
-      bankAccountName:
-          _dashboardViewModel.currentRestaurant?.bankAccountName ?? '',
-      accountNumber:
-          _dashboardViewModel.currentRestaurant?.accountNumber ?? '',
-      ifscCode: _dashboardViewModel.currentRestaurant?.ifscCode ?? '',
+      documents: _dashboardViewModel.currentRestaurant!.documents,
+      bankDetails: _dashboardViewModel.currentRestaurant!.bankDetails,
       agreeToTerms:
           _dashboardViewModel.currentRestaurant?.agreeToTerms ?? false,
       status: _dashboardViewModel.currentRestaurant?.status ?? 'inactive',
@@ -106,10 +122,6 @@ class _EditRestaurantProfileScreenState
       deliveryRadius:
           _dashboardViewModel.currentRestaurant?.deliveryRadius,
       deliveryZones: _dashboardViewModel.currentRestaurant?.deliveryZones,
-      restaurantLatitude:
-          _dashboardViewModel.currentRestaurant?.restaurantLatitude,
-      restaurantLongitude:
-          _dashboardViewModel.currentRestaurant?.restaurantLongitude,
       minOrderAmount:
           _dashboardViewModel.currentRestaurant?.minOrderAmount,
       baseDeliveryFee:
@@ -121,6 +133,15 @@ class _EditRestaurantProfileScreenState
       createdAt: _dashboardViewModel.currentRestaurant?.createdAt ??
           DateTime.now().toIso8601String(),
       updatedAt: DateTime.now().toIso8601String(),
+      address: Address(
+        address: _fullAddressController.text,
+        city: _cityController.text,
+        state: _stateController.text,
+        pincode: _pincodeController.text,
+        landMark: _landmarkController.text,
+        lat: _dashboardViewModel.currentRestaurant?.address.lat ?? 0.0,
+        lng: _dashboardViewModel.currentRestaurant?.address.lng ?? 0.0,
+      ),
     );
 
     final response = await _restaurantService.updateRestaurant(
@@ -147,12 +168,21 @@ class _EditRestaurantProfileScreenState
   @override
   void dispose() {
     _restaurantNameController.dispose();
-    _contactPersonNameController.dispose();
-    _contactEmailController.dispose();
-    _contactMobileNumberController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _emailController.dispose();
+    _phoneNumberController.dispose();
     _restaurantDescriptionController.dispose();
     _averageCostForTwoController.dispose();
     _fullAddressController.dispose();
+    _landmarkController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _pincodeController.dispose();
+    _restContactNumberController.dispose();
+    _restEmailController.dispose();
+    _restWebsiteController.dispose();
+    _socialMediaController.dispose();
     super.dispose();
   }
 
@@ -250,23 +280,57 @@ class _EditRestaurantProfileScreenState
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(
-                    controller: _contactPersonNameController,
-                    labelText: 'Contact Person Name',
-                    hintText: 'John Smith',
+                    controller: _firstNameController,
+                    labelText: 'Contact Person First Name',
+                    hintText: 'John',
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(
-                    controller: _contactEmailController,
+                    controller: _lastNameController,
+                    labelText: 'Contact Person Last Name',
+                    hintText: 'Smith',
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    controller: _emailController,
                     labelText: 'Contact Email',
                     hintText: 'contact@goldenspoon.com',
                     keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(
-                    controller: _contactMobileNumberController,
+                    controller: _phoneNumberController,
                     labelText: 'Contact Mobile Number',
                     hintText: '+91 98765 43210',
                     keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    controller: _restContactNumberController,
+                    labelText: 'Restaurant Contact Number',
+                    hintText: '+91 98765 43210',
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    controller: _restEmailController,
+                    labelText: 'Restaurant Email',
+                    hintText: 'restaurant@goldenspoon.com',
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    controller: _restWebsiteController,
+                    labelText: 'Restaurant Website (Optional)',
+                    hintText: 'www.goldenspoon.com',
+                    keyboardType: TextInputType.url,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    controller: _socialMediaController,
+                    labelText: 'Social Media Link (Optional)',
+                    hintText: 'facebook.com/goldenspoon',
+                    keyboardType: TextInputType.url,
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(

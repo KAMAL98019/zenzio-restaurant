@@ -37,7 +37,7 @@ class ForgotPasswordViewModel extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    final response = await _authService.sendOtp(
+    final response = await _authService.sendForgotPasswordOtp(
       emailOrMobileController.text.trim(),
     );
 
@@ -73,7 +73,7 @@ class ForgotPasswordViewModel extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    final response = await _authService.verifyOtp(
+    final response = await _authService.verifyForgotPasswordOtp(
       emailOrMobile: emailOrMobileController.text.trim(),
       otp: otpController.text.trim(),
     );

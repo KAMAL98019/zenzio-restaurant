@@ -3,8 +3,12 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
+import 'dart:convert';
 import '../models/restaurant.dart';
 import '../models/operational_hours.dart';
+import '../models/documents.dart';
+import '../models/bank_details.dart';
+import '../models/address.dart'; // Added import for Address
 import '../services/auth_service.dart';
 import '../services/restaurant_service.dart';
 import '../main.dart';
@@ -22,6 +26,10 @@ class RegistrationViewModel extends ChangeNotifier {
   bool _isLoading = false;
   bool _isUpdating = false;
   bool _agreeToTerms = false;
+  bool _isOtpSent = false;
+  bool _isOtpVerified = false;
+  bool _isSendingOtp = false;
+  bool _isVerifyingOtp = false;
 
   static const int _maxImageSize = 1 * 1024 * 1024; // 1MB
   static const int _maxDocumentSize = 2 * 1024 * 1024; // 2MB
@@ -31,6 +39,10 @@ class RegistrationViewModel extends ChangeNotifier {
       TextEditingController();
   final TextEditingController restaurantAddressController =
       TextEditingController();
+  final TextEditingController landmarkController = TextEditingController();
+  final TextEditingController cityController = TextEditingController();
+  final TextEditingController stateController = TextEditingController();
+  final TextEditingController pincodeController = TextEditingController();
   final TextEditingController avgCostController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
   String? restaurantLogoPath;
@@ -38,12 +50,17 @@ class RegistrationViewModel extends ChangeNotifier {
   LatLng? restaurantLocation;
 
   // Step 2: Contact Details
-  final TextEditingController contactPersonController = TextEditingController();
-  final TextEditingController contactEmailController = TextEditingController();
-  final TextEditingController contactNumberController = TextEditingController();
+  final TextEditingController firstNameController = TextEditingController();
+  final TextEditingController lastNameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController phoneNumberController = TextEditingController();
+  final TextEditingController restContactNumberController = TextEditingController();
+  final TextEditingController restEmailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController otpController = TextEditingController();
   List<OperationalHours> operationalHours = OperationalHours.getDefaultHours();
   List<String> selectedCuisines = [];
+  List<String> selectedCategories = [];
 
   // Step 3: Documents & Bank Details
   String? fssaiCertificatePath;
@@ -52,12 +69,24 @@ class RegistrationViewModel extends ChangeNotifier {
       TextEditingController();
   final TextEditingController accountNumberController = TextEditingController();
   final TextEditingController ifscCodeController = TextEditingController();
+  final TextEditingController bankNameController = TextEditingController();
+  final TextEditingController accountTypeController = TextEditingController();
+  final TextEditingController fssaiNumberController = TextEditingController();
+  final TextEditingController gstNumberController = TextEditingController();
+  final TextEditingController tradeLicenseNumberController = TextEditingController();
+  final TextEditingController otherDocumentTypeController = TextEditingController();
+  String? tradeLicensePath;
+  String? otherDocumentPath;
 
   // Getters
   int get currentStep => _currentStep;
   bool get isLoading => _isLoading;
   bool get isUpdating => _isUpdating;
   bool get agreeToTerms => _agreeToTerms;
+  bool get isOtpSent => _isOtpSent;
+  bool get isOtpVerified => _isOtpVerified;
+  bool get isSendingOtp => _isSendingOtp;
+  bool get isVerifyingOtp => _isVerifyingOtp;
   int get totalSteps => 3;
 
   /// Initialize for editing existing restaurant
@@ -82,16 +111,26 @@ class RegistrationViewModel extends ChangeNotifier {
 
   void _populateControllers() {
     if (restaurant == null) return;
-    restaurantNameController.text = restaurant!.restName;
-    restaurantAddressController.text = restaurant!.restAddress;
+    restaurantNameController.text = restaurant!.restaurantName;
+    restaurantAddressController.text = restaurant!.address.address;
+    landmarkController.text = restaurant!.address.landMark ?? '';
+    cityController.text = restaurant!.address.city;
+    stateController.text = restaurant!.address.state;
+    pincodeController.text = restaurant!.address.pincode;
     avgCostController.text = restaurant!.avgCostTwo;
-    contactPersonController.text = restaurant!.contactPersonName;
-    contactEmailController.text = restaurant!.contactEmail;
-    contactNumberController.text = restaurant!.contactNumber;
-    bankAccountNameController.text = restaurant!.bankAccountName;
-    accountNumberController.text = restaurant!.accountNumber;
-    ifscCodeController.text = restaurant!.ifscCode;
+    firstNameController.text = restaurant!.firstName;
+    lastNameController.text = restaurant!.lastName;
+    emailController.text = restaurant!.email;
+    phoneNumberController.text = restaurant!.phoneNumber;
+    restContactNumberController.text = restaurant!.restContactNumber;
+    restEmailController.text = restaurant!.restEmail;
+    bankAccountNameController.text = restaurant!.bankDetails.bankAccountName;
+    accountNumberController.text = restaurant!.bankDetails.accountNumber;
+    ifscCodeController.text = restaurant!.bankDetails.ifscCode;
     operationalHours = restaurant!.operationalHours;
+    selectedCuisines = restaurant!.cuisines.map((e) => e.id).toList();
+    selectedCategories = restaurant!.categories.map((e) => e.id).toList();
+    restaurantLocation = LatLng(restaurant!.address.lat, restaurant!.address.lng);
   }
 
   void setRestaurantLogo(String path) {
@@ -194,6 +233,11 @@ class RegistrationViewModel extends ChangeNotifier {
       _showToast('Please enter restaurant name');
       return false;
     }
+    if (restaurantNameController.text.trim().length < 3 ||
+        restaurantNameController.text.trim().length > 100) {
+      _showToast('Restaurant name must be between 3 and 100 characters');
+      return false;
+    }
     if (restaurantAddressController.text.trim().isEmpty) {
       _showToast('Please enter restaurant address');
       return false;
@@ -210,23 +254,44 @@ class RegistrationViewModel extends ChangeNotifier {
   }
 
   bool validateStep2() {
-    if (contactPersonController.text.trim().isEmpty) {
-      _showToast('Please enter contact person name');
+    if (firstNameController.text.trim().isEmpty) {
+      _showToast('Please enter contact person first name');
       return false;
     }
-    if (contactEmailController.text.trim().isEmpty ||
+    if (lastNameController.text.trim().isEmpty) {
+      _showToast('Please enter contact person last name');
+      return false;
+    }
+    if (emailController.text.trim().isEmpty ||
         !RegExp(
           r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-        ).hasMatch(contactEmailController.text.trim())) {
-      _showToast('Please enter a valid email address');
+        ).hasMatch(emailController.text.trim())) {
+      _showToast('Please enter a valid contact person email address');
       return false;
     }
-    if (contactNumberController.text.trim().length < 10) {
-      _showToast('Please enter valid contact number (10 digits)');
+    if (phoneNumberController.text.trim().length != 10) {
+      _showToast('Please enter valid contact person mobile number (10 digits)');
       return false;
     }
-    if (mode == 'registration' && passwordController.text.length < 6) {
-      _showToast('Password must be at least 6 characters');
+    if (mode == 'registration' && !_isOtpVerified) {
+      _showToast('Please verify your contact person mobile number with OTP');
+      return false;
+    }
+    if (restContactNumberController.text.trim().length != 10) {
+      _showToast('Please enter valid restaurant contact number (10 digits)');
+      return false;
+    }
+    if (restEmailController.text.trim().isEmpty ||
+        !RegExp(
+          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+        ).hasMatch(restEmailController.text.trim())) {
+      _showToast('Please enter a valid restaurant email address');
+      return false;
+    }
+    if (mode == 'registration' &&
+        (passwordController.text.length < 8 ||
+            passwordController.text.length > 20)) {
+      _showToast('Password must be between 8 and 20 characters');
       return false;
     }
     return true;
@@ -299,26 +364,29 @@ class RegistrationViewModel extends ChangeNotifier {
     try {
       final updatedRestaurant = Restaurant(
         id: restaurant!.id,
-        restName: restaurantNameController.text.trim(),
-        restAddress: restaurantAddressController.text.trim(),
+        restaurantName: restaurantNameController.text.trim(),
         avgCostTwo: avgCostController.text.trim(),
         restLogo: restaurantLogoPath ?? restaurant!.restLogo,
-        contactPersonName: contactPersonController.text.trim(),
-        contactEmail: contactEmailController.text.trim(),
-        contactNumber: contactNumberController.text.trim(),
+        firstName: firstNameController.text.trim(),
+        lastName: lastNameController.text.trim(),
+        email: emailController.text.trim(),
+        phoneNumber: phoneNumberController.text.trim(),
+        restContactNumber: restContactNumberController.text.trim(),
+        restEmail: restEmailController.text.trim(),
+        cuisines: restaurant!.cuisines,
+        categories: restaurant!.categories,
         operationalHours: operationalHours,
-        fssaiCertificate: restaurant!.fssaiCertificate,
-        gstCertificate: restaurant!.gstCertificate,
-        bankAccountName: bankAccountNameController.text.trim(),
-        accountNumber: accountNumberController.text.trim(),
-        ifscCode: ifscCodeController.text.trim(),
+        documents: restaurant!.documents,
+        bankDetails: restaurant!.bankDetails.copyWith(
+          bankAccountName: bankAccountNameController.text.trim(),
+          accountNumber: accountNumberController.text.trim(),
+          ifscCode: ifscCodeController.text.trim(),
+        ),
         agreeToTerms: restaurant!.agreeToTerms,
         status: restaurant!.status,
         deliveryType: restaurant!.deliveryType,
         deliveryRadius: restaurant!.deliveryRadius,
         deliveryZones: restaurant!.deliveryZones,
-        restaurantLatitude: restaurant!.restaurantLatitude,
-        restaurantLongitude: restaurant!.restaurantLongitude,
         minOrderAmount: restaurant!.minOrderAmount,
         baseDeliveryFee: restaurant!.baseDeliveryFee,
         otp: restaurant!.otp,
@@ -326,6 +394,15 @@ class RegistrationViewModel extends ChangeNotifier {
         otpVerified: restaurant!.otpVerified,
         createdAt: restaurant!.createdAt,
         updatedAt: DateTime.now().toIso8601String(),
+        address: restaurant!.address.copyWith(
+          address: restaurantAddressController.text.trim(),
+          landMark: landmarkController.text.trim(),
+          city: cityController.text.trim(),
+          state: stateController.text.trim(),
+          pincode: pincodeController.text.trim(),
+          lat: restaurantLocation?.latitude ?? 0.0,
+          lng: restaurantLocation?.longitude ?? 0.0,
+        ),
       );
 
       final response = await _restaurantService.updateRestaurant(
@@ -359,35 +436,57 @@ class RegistrationViewModel extends ChangeNotifier {
     try {
       final restaurant = Restaurant(
         id: '',
-        restName: restaurantNameController.text.trim(),
-        restAddress: restaurantAddressController.text.trim(),
+        restaurantName: restaurantNameController.text.trim(),
         avgCostTwo: avgCostController.text.trim(),
         restLogo: restaurantLogoPath ?? '',
-        contactPersonName: contactPersonController.text.trim(),
-        contactEmail: contactEmailController.text.trim(),
-        contactNumber: contactNumberController.text.trim(),
+        firstName: firstNameController.text.trim(),
+        lastName: lastNameController.text.trim(),
+        email: emailController.text.trim(),
+        phoneNumber: phoneNumberController.text.trim(),
+        restContactNumber: restContactNumberController.text.trim(),
+        restEmail: restEmailController.text.trim(),
+        cuisines: [], // Will be populated later
+        categories: [], // Will be populated later
         operationalHours: operationalHours,
-        fssaiCertificate: fssaiCertificatePath ?? '',
-        gstCertificate: gstCertificatePath ?? '',
-        bankAccountName: bankAccountNameController.text.trim(),
-        accountNumber: accountNumberController.text.trim(),
-        ifscCode: ifscCodeController.text.trim(),
+        documents: Documents(
+          fssaiNumber: fssaiNumberController.text.trim(),
+          fssaiCertificateUrl: fssaiCertificatePath ?? '',
+          gstNumber: gstNumberController.text.trim(),
+          gstCertificateUrl: gstCertificatePath ?? '',
+          tradeLicenseNumber: tradeLicenseNumberController.text.trim(),
+          tradeLicenseUrl: tradeLicensePath ?? '',
+          otherDocumentType: otherDocumentTypeController.text.trim(),
+          otherDocumentUrl: otherDocumentPath ?? '',
+        ),
+        bankDetails: BankDetails(
+          bankName: bankNameController.text.trim(),
+          bankAccountName: bankAccountNameController.text.trim(),
+          accountNumber: accountNumberController.text.trim(),
+          ifscCode: ifscCodeController.text.trim(),
+          accountType: accountTypeController.text.trim(),
+        ),
         agreeToTerms: _agreeToTerms,
         status: 'pending',
         deliveryType: 'RADIUS',
-        otpVerified: false,
+        otpVerified: _isOtpVerified, // Use the new state
         createdAt: DateTime.now().toIso8601String(),
         updatedAt: DateTime.now().toIso8601String(),
+        address: Address(
+          address: restaurantAddressController.text.trim(),
+          city: cityController.text.trim(),
+          state: stateController.text.trim(),
+          pincode: pincodeController.text.trim(),
+          landMark: landmarkController.text.trim(),
+          lat: restaurantLocation?.latitude ?? 0.0,
+          lng: restaurantLocation?.longitude ?? 0.0,
+        ),
       );
 
       final Map<String, String> additionalFields = {
-        'password': passwordController.text.trim(),
+        "password": passwordController.text.trim(),
       };
-      if (restaurantLocation != null) {
-        additionalFields['latitude'] = restaurantLocation!.latitude.toString();
-        additionalFields['longitude'] = restaurantLocation!.longitude
-            .toString();
-      }
+
+      print('Reaching registration with data: ${jsonEncode(restaurant.toJson())}');
 
       final response = await _authService.register(
         restaurant,
@@ -402,6 +501,7 @@ class RegistrationViewModel extends ChangeNotifier {
           await prefs.setString('restaurant_id', restaurantId);
           print('Restaurant ID stored: $restaurantId');
         }
+        _setLoading(false); // Ensure loading is off before navigation
         Navigator.pushAndRemoveUntil(
           navigatorKey.currentContext!,
           MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -409,18 +509,21 @@ class RegistrationViewModel extends ChangeNotifier {
         );
         return true;
       } else {
+        _setLoading(false); // Ensure loading is off on failure
         _showToast(
           response.message ?? 'Registration failed. Please check all fields.',
         );
         return false;
       }
     } catch (e) {
+      _setLoading(false); // Ensure loading is off on error
       _showToast('Error: ${e.toString()}');
       return false;
-    } finally {
-      _setLoading(false);
     }
+    // The finally block is no longer strictly necessary for _setLoading(false)
+    // as it's handled in all exit paths.
   }
+
 
   Future<bool> _validateAllFiles() async {
     bool allFilesValid = true;
@@ -499,18 +602,103 @@ class RegistrationViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setOtpVerified(bool value) {
+    _isOtpVerified = value;
+    notifyListeners();
+  }
+  void resetOtpState() {
+    _isOtpSent = false;
+    _isOtpVerified = false;
+    otpController.clear();
+    notifyListeners();
+  }
+
+  Future<void> sendOtp() async {
+    if (phoneNumberController.text.trim().length != 10) {
+      _showToast('Please enter valid 10-digit mobile number');
+      return;
+    }
+
+    _isSendingOtp = true;
+    notifyListeners();
+
+    try {
+      final response = await _authService.sendRegistrationOtp(
+        phoneNumberController.text.trim(),
+      );
+
+      if (response.success) {
+        _isOtpSent = true;
+        _showToast('OTP sent successfully!', isError: false);
+      } else {
+        _showToast(response.message ?? 'Failed to send OTP');
+      }
+    } catch (e) {
+      _showToast('Error sending OTP: ${e.toString()}');
+    } finally {
+      _isSendingOtp = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> verifyOtp() async {
+    if (otpController.text.trim().length != 6) {
+      _showToast('Please enter valid 6-digit OTP');
+      return false;
+    }
+
+    _isVerifyingOtp = true;
+    notifyListeners();
+
+    try {
+      final response = await _authService.verifyRegistrationOtp(
+        mobileNumber: phoneNumberController.text.trim(),
+        otp: otpController.text.trim(),
+      );
+
+      if (response.success) {
+        _isOtpVerified = true;
+        _showToast('Mobile number verified successfully!', isError: false);
+        return true;
+      } else {
+        _showToast(response.message ?? 'Invalid OTP');
+        return false;
+      }
+    } catch (e) {
+      _showToast('Error verifying OTP: ${e.toString()}');
+      return false;
+    } finally {
+      _isVerifyingOtp = false;
+      notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
     restaurantNameController.dispose();
     restaurantAddressController.dispose();
+    landmarkController.dispose();
+    cityController.dispose();
+    stateController.dispose();
+    pincodeController.dispose();
     avgCostController.dispose();
-    contactPersonController.dispose();
-    contactEmailController.dispose();
-    contactNumberController.dispose();
+    firstNameController.dispose();
+    lastNameController.dispose();
+    emailController.dispose();
+    phoneNumberController.dispose();
+    restContactNumberController.dispose();
+    restEmailController.dispose();
     passwordController.dispose();
+    otpController.dispose();
     bankAccountNameController.dispose();
     accountNumberController.dispose();
     ifscCodeController.dispose();
+    bankNameController.dispose();
+    accountTypeController.dispose();
+    fssaiNumberController.dispose();
+    gstNumberController.dispose();
+    tradeLicenseNumberController.dispose();
+    otherDocumentTypeController.dispose();
     descriptionController.dispose();
     super.dispose();
   }

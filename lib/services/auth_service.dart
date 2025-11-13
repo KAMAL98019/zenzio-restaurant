@@ -29,21 +29,45 @@ class AuthService {
       var uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.register}');
       var request = http.MultipartRequest('POST', uri);
 
+      // Add required headers for client identification
+      request.headers.addAll({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'platform': 'Android', // Matching the platform from the error log
+        'User-Agent': 'Android', // Matching the platform from the error log
+        'mode': 'development',
+        'clientId': ApiConstants.clientId,
+      });
+
       // Add text fields
       request.fields['id'] = restaurant.id;
-      request.fields['rest_name'] = restaurant.restName;
-      request.fields['rest_address'] = restaurant.restAddress;
+      request.fields['restaurant_name'] = restaurant.restaurantName;
+      request.fields['address[address]'] = restaurant.address.address;
+      request.fields['address[city]'] = restaurant.address.city;
+      request.fields['address[state]'] = restaurant.address.state;
+      request.fields['address[pincode]'] = restaurant.address.pincode;
+      request.fields['address[land_mark]'] = restaurant.address.landMark ?? '';
+      request.fields['address[lat]'] = restaurant.address.lat.toString();
+      request.fields['address[lng]'] = restaurant.address.lng.toString();
       request.fields['avg_cost_two'] = restaurant.avgCostTwo.toString();
       request.fields['rest_logo'] = restaurant.restLogo;
-      request.fields['contact_person_name'] = restaurant.contactPersonName;
-      request.fields['contact_email'] = restaurant.contactEmail;
-      request.fields['contact_number'] = restaurant.contactNumber;
+      request.fields['firstName'] = restaurant.firstName;
+      request.fields['lastName'] = restaurant.lastName;
+      request.fields['email'] = restaurant.email;
+      request.fields['phoneNumber'] = restaurant.phoneNumber;
+      request.fields['rest_contact_number'] = restaurant.restContactNumber;
+      request.fields['rest_email'] = restaurant.restEmail;
+      if (restaurant.restWebsite != null) {
+        request.fields['rest_website'] = restaurant.restWebsite!;
+      }
+      if (restaurant.socialMedia != null) {
+        request.fields['social_media'] = restaurant.socialMedia!;
+      }
+      request.fields['cuisines'] = jsonEncode(restaurant.cuisines.map((e) => e.toJson()).toList());
+      request.fields['categories'] = jsonEncode(restaurant.categories.map((e) => e.toJson()).toList());
       request.fields['operational_hours'] = jsonEncode(restaurant.operationalHours.map((e) => e.toJson()).toList());
-      request.fields['fssai_certificate'] = restaurant.fssaiCertificate;
-      request.fields['gst_certificate'] = restaurant.gstCertificate;
-      request.fields['bank_account_name'] = restaurant.bankAccountName;
-      request.fields['account_number'] = restaurant.accountNumber;
-      request.fields['ifsc_code'] = restaurant.ifscCode;
+      request.fields['documents'] = jsonEncode(restaurant.documents.toJson());
+      request.fields['bankDetails'] = jsonEncode(restaurant.bankDetails.toJson());
       request.fields['agree_to_terms'] = restaurant.agreeToTerms.toString();
       request.fields['status'] = restaurant.status;
       request.fields['deliveryType'] = restaurant.deliveryType;
@@ -56,12 +80,6 @@ class AuthService {
       }
       if (restaurant.deliveryZones != null) {
         request.fields['deliveryZones'] = restaurant.deliveryZones!;
-      }
-      if (restaurant.restaurantLatitude != null) {
-        request.fields['restaurantLatitude'] = restaurant.restaurantLatitude.toString();
-      }
-      if (restaurant.restaurantLongitude != null) {
-        request.fields['restaurantLongitude'] = restaurant.restaurantLongitude.toString();
       }
       if (restaurant.minOrderAmount != null) {
         request.fields['minOrderAmount'] = restaurant.minOrderAmount!;
@@ -78,8 +96,16 @@ class AuthService {
 
       // Add additional fields if provided
       if (additionalFields != null) {
-        request.fields.addAll(additionalFields);
+        additionalFields.forEach((key, value) {
+          if (key != 'password') { // Password is handled separately
+            request.fields[key] = value;
+          }
+        });
       }
+      // Password should be a direct field, not in additionalFields
+      // It's already added in RegistrationViewModel's additionalFields
+      // and will be added here if present.
+      // No need for a separate check here.
 
       print('Starting file compression and upload...');
 
@@ -94,14 +120,14 @@ class AuthService {
       }
       
       try {
-        await _addCompressedFileToRequest(request, 'fssai_certificate', restaurant.fssaiCertificate, isImage: false);
+        await _addCompressedFileToRequest(request, 'fssai_certificate', restaurant.documents.fssaiCertificateUrl, isImage: false);
       } catch (e) {
         print('Error adding FSSAI certificate: $e');
         filesAdded = false;
       }
       
       try {
-        await _addCompressedFileToRequest(request, 'gst_certificate', restaurant.gstCertificate, isImage: false);
+        await _addCompressedFileToRequest(request, 'gst_certificate', restaurant.documents.gstCertificateUrl, isImage: false);
       } catch (e) {
         print('Error adding GST certificate: $e');
         filesAdded = false;
@@ -342,8 +368,8 @@ class AuthService {
   // OTP Login - Send OTP
   Future<ApiResponse<dynamic>> sendOtpLogin(String mobileNumber) async {
     return await _apiService.post(
-      ApiConstants.otpLoginSend,
-      data: {'mobileNumber': mobileNumber.trim()},
+      ApiConstants.sendPhoneOtp,
+      data: {'phone': mobileNumber.trim()},
     );
   }
 
@@ -353,9 +379,9 @@ class AuthService {
     required String otp,
   }) async {
     final response = await _apiService.post<Map<String, dynamic>>(
-      ApiConstants.otpLoginVerify,
+      ApiConstants.verifyPhoneOtp,
       data: {
-        'mobileNumber': mobileNumber.trim(),
+        'phone': mobileNumber.trim(),
         'otp': otp.trim(),
       },
       fromJson: (json) => json as Map<String, dynamic>,
@@ -375,23 +401,45 @@ class AuthService {
     return response;
   }
 
-  // Forgot Password - Send OTP
-  Future<ApiResponse<dynamic>> sendOtp(String emailOrMobile) async {
+  // Registration - Send OTP
+  Future<ApiResponse<dynamic>> sendRegistrationOtp(String mobileNumber) async {
     return await _apiService.post(
-      ApiConstants.sendOtp,
+      ApiConstants.sendPhoneOtp,
+      data: {'phone': mobileNumber.trim()},
+    );
+  }
+
+  // Registration - Verify OTP
+  Future<ApiResponse<dynamic>> verifyRegistrationOtp({
+    required String mobileNumber,
+    required String otp,
+  }) async {
+    return await _apiService.post(
+      ApiConstants.verifyPhoneOtp,
+      data: {
+        'phone': mobileNumber.trim(),
+        'otp': otp.trim(),
+      },
+    );
+  }
+
+  // Forgot Password - Send OTP
+  Future<ApiResponse<dynamic>> sendForgotPasswordOtp(String emailOrMobile) async {
+    return await _apiService.post(
+      ApiConstants.sendForgotPasswordOtp,
       data: {'phone': emailOrMobile.trim()},
     );
   }
 
   // Verify OTP
-  Future<ApiResponse<dynamic>> verifyOtp({
+  Future<ApiResponse<dynamic>> verifyForgotPasswordOtp({
     required String emailOrMobile,
     required String otp,
   }) async {
     return await _apiService.post(
-      ApiConstants.verifyOtp,
+      ApiConstants.verifyForgotPasswordOtp,
       data: {
-        'emailOrMobile': emailOrMobile.trim(),
+        'phone': emailOrMobile.trim(),
         'otp': otp.trim(),
       },
     );
