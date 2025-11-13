@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:zenzio_restaurant/core/constant/api_constant.dart';
 import '../models/api_response.dart';
@@ -18,31 +19,31 @@ class ApiService {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'platform': 'Android',
+          'User-Agent': 'Android',
+          'mode': 'development',
+          'clientId': ApiConstants.clientId,
         },
       ),
     );
 
-    // Add interceptors for logging
+    // Logging for debugging
     _dio.interceptors.add(
-      LogInterceptor(
-        requestBody: true,
-        responseBody: true,
-        error: true,
-      ),
+      LogInterceptor(requestBody: true, responseBody: true, error: true),
     );
   }
 
-  // Set authorization token
+  // ✅ Set token globally
   void setAuthToken(String token) {
     _dio.options.headers['Authorization'] = 'Bearer $token';
   }
 
-  // Remove authorization token
+  // ✅ Remove token
   void removeAuthToken() {
     _dio.options.headers.remove('Authorization');
   }
 
-  // Generic GET request
+  // ✅ Generic GET
   Future<ApiResponse<T>> get<T>(
     String endpoint, {
     Map<String, dynamic>? queryParameters,
@@ -53,8 +54,9 @@ class ApiService {
         endpoint,
         queryParameters: queryParameters,
       );
+
       return ApiResponse.success(
-        data: fromJson != null && response.data != null ? fromJson(response.data) : null,
+        data: fromJson != null ? fromJson(response.data) : response.data,
         message: response.data?['message'] ?? 'Success',
       );
     } on DioException catch (e) {
@@ -62,21 +64,28 @@ class ApiService {
     }
   }
 
-  // Generic POST request
+  // ✅ Generic POST (using Dio)
+  // ✅ Generic POST (supports both JSON & FormData)
   Future<ApiResponse<T>> post<T>(
     String endpoint, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
+    dynamic data, // can be Map<String, dynamic> or FormData
     T Function(dynamic)? fromJson,
   }) async {
     try {
-      final response = await _dio.post(
-        endpoint,
-        data: data,
-        queryParameters: queryParameters,
-      );
+      print('🌐 POST: ${_dio.options.baseUrl}$endpoint');
+      print('📤 Headers: ${_dio.options.headers}');
+      if (data is FormData) {
+        print('📦 Body: [FormData with ${data.fields.length} fields]');
+      } else {
+        print('📦 Body: ${data != null ? data.toString() : "{}"}');
+      }
+
+      final response = await _dio.post(endpoint, data: data);
+
+      print('📥 Response: ${response.statusCode} ${response.data}');
+
       return ApiResponse.success(
-        data: fromJson != null && response.data != null ? fromJson(response.data) : null,
+        data: fromJson != null ? fromJson(response.data) : response.data,
         message: response.data?['message'] ?? 'Success',
       );
     } on DioException catch (e) {
@@ -84,7 +93,7 @@ class ApiService {
     }
   }
 
-  // Generic PUT request
+  // ✅ PUT
   Future<ApiResponse<T>> put<T>(
     String endpoint, {
     dynamic data,
@@ -99,14 +108,14 @@ class ApiService {
       );
       return ApiResponse.success(
         data: fromJson != null ? fromJson(response.data) : response.data,
-        message: response.data['message'],
+        message: response.data?['message'] ?? 'Success',
       );
     } on DioException catch (e) {
       return _handleError(e);
     }
   }
 
-  // Generic DELETE request
+  // ✅ DELETE
   Future<ApiResponse<T>> delete<T>(
     String endpoint, {
     Map<String, dynamic>? data,
@@ -120,9 +129,7 @@ class ApiService {
         queryParameters: queryParameters,
       );
       return ApiResponse.success(
-        data: fromJson != null && response.data != null
-            ? fromJson(response.data)
-            : null,
+        data: fromJson != null ? fromJson(response.data) : response.data,
         message: response.data?['message'] ?? 'Success',
       );
     } on DioException catch (e) {
@@ -130,7 +137,7 @@ class ApiService {
     }
   }
 
-  // Upload file with multipart
+  // ✅ File Upload
   Future<ApiResponse<T>> uploadFile<T>(
     String endpoint, {
     required String filePath,
@@ -144,29 +151,27 @@ class ApiService {
         ...?additionalData,
       });
 
-      final response = await _dio.post(
-        endpoint,
-        data: formData,
-      );
+      final response = await _dio.post(endpoint, data: formData);
 
       return ApiResponse.success(
         data: fromJson != null ? fromJson(response.data) : response.data,
-        message: response.data['message'],
+        message: response.data?['message'] ?? 'Success',
       );
     } on DioException catch (e) {
       return _handleError(e);
     }
   }
 
-  // Error handler
+  // ✅ Error Handler
   ApiResponse<T> _handleError<T>(DioException error) {
     String message = 'An unexpected error occurred';
-    
+
     if (error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.receiveTimeout) {
       message = 'Connection timeout. Please try again.';
     } else if (error.type == DioExceptionType.badResponse) {
-      if (error.response?.data is Map && error.response?.data['message'] != null) {
+      if (error.response?.data is Map &&
+          error.response?.data['message'] != null) {
         message = error.response?.data['message'];
       } else {
         message = 'Server error: ${error.response?.statusCode}';
@@ -175,9 +180,6 @@ class ApiService {
       message = 'No internet connection';
     }
 
-    return ApiResponse.error(
-      error: error,
-      message: message,
-    );
+    return ApiResponse.error(error: error, message: message);
   }
 }

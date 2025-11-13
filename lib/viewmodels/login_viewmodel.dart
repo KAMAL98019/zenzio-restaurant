@@ -10,12 +10,20 @@ class LoginViewModel extends ChangeNotifier {
 
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController otpController = TextEditingController();
 
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _showOtpField = false;
 
   bool get isLoading => _isLoading;
   bool get obscurePassword => _obscurePassword;
+  bool get showOtpField => _showOtpField;
+
+  void toggleOtpFieldVisibility(bool value) {
+    _showOtpField = value;
+    notifyListeners();
+  }
 
   void togglePasswordVisibility() {
     _obscurePassword = !_obscurePassword;
@@ -93,10 +101,92 @@ class LoginViewModel extends ChangeNotifier {
     }
   }
 
+  Future<bool> sendOtpForLogin() async {
+    final mobileNumber = emailController.text.trim(); // Assuming emailController can also hold mobile number
+
+    if (mobileNumber.isEmpty) {
+      Fluttertoast.showToast(msg: 'Please enter your mobile number');
+      return false;
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    final response = await _authService.sendOtpLogin(mobileNumber);
+
+    _isLoading = false;
+    notifyListeners();
+
+    if (response.success) {
+      Fluttertoast.showToast(msg: 'OTP sent to your mobile number');
+      _showOtpField = true; // Show OTP field after sending
+      notifyListeners();
+      return true;
+    } else {
+      Fluttertoast.showToast(msg: response.message ?? 'Failed to send OTP');
+      return false;
+    }
+  }
+
+  Future<bool> verifyOtpAndLogin() async {
+    final mobileNumber = emailController.text.trim();
+    final otp = otpController.text.trim();
+
+    if (mobileNumber.isEmpty || otp.isEmpty) {
+      Fluttertoast.showToast(msg: 'Please enter mobile number and OTP');
+      return false;
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    final response = await _authService.verifyOtpLogin(
+      mobileNumber: mobileNumber,
+      otp: otp,
+    );
+
+    _isLoading = false;
+    notifyListeners();
+
+    if (response.success && response.data != null) {
+      final restaurantId = response.data?['data']['id']?.toString();
+      final token = response.data?['token'];
+
+      if (restaurantId != null) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('registrationID', restaurantId);
+          await prefs.setString('authToken', token ?? '');
+        } catch (e) {
+          debugPrint('⚠️ Error saving preferences: $e');
+        }
+      }
+
+      Fluttertoast.showToast(
+        msg: 'OTP login successful!',
+        backgroundColor: Colors.green,
+      );
+
+      Navigator.pushAndRemoveUntil(
+        navigatorKey.currentContext!,
+        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        (route) => false,
+      );
+      return true;
+    } else {
+      Fluttertoast.showToast(
+        msg: response.message ?? 'OTP verification failed',
+        backgroundColor: Colors.red,
+      );
+      return false;
+    }
+  }
+
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
+    otpController.dispose();
     super.dispose();
   }
 }

@@ -1,10 +1,21 @@
 class ApiConstants {
   // Base URL
-  static const String baseUrl = 'https://backend.zenzio.in';
+  // static const String baseUrl = 'https://backend.zenzio.in';
+
+  static const String baseUrl =
+      'https://erica-transthoracic-envyingly.ngrok-free.dev';
 
   // API Endpoints
-  static const String login = '/api/restaurants/login';
-  static const String register = '/api/restaurants';
+  static const String login = '/restaurants/auth/login/email';
+  static const String register = '/restaurants/auth/signup/email';
+  static const String otpLoginSend = '/otp/send';
+  static const String otpLoginVerify = '/otp/verify';
+
+  // ✅ Use your actual values from /clients/generate
+  static const clientId = '7f60340e-c965-45e9-b725-0288530d3681';
+  static const clientSecret = ''; 
+
+  // Restaurant Profile
   static String restaurantDetails(String id) => '/api/restaurants/$id';
   static String updateRestaurant(String id) => '/api/restaurants/$id';
 
@@ -53,12 +64,13 @@ class ApiConstants {
   // Events
   static String getEvents(String restaurantId) => '/api/events/$restaurantId';
   static String createEvent(String restaurantId) => '/api/events/$restaurantId';
-  static String updateEvent(String restaurantId, String id) => '/api/events/$restaurantId/$id';
-  static String deleteEvent(String restaurantId, String id) => '/api/events/$restaurantId/$id';
+  static String updateEvent(String restaurantId, String id) =>
+      '/api/events/$restaurantId/$id';
+  static String deleteEvent(String restaurantId, String id) =>
+      '/api/events/$restaurantId/$id';
 
   static const String offers = '/api/restaurant/offers';
   static String offer(String id) => '/api/restaurant/offers/$id';
   static String deleteOffer(String id) =>
       '/api/restaurant/offers/$id'; // Add this line
 }
-

@@ -319,8 +319,44 @@ class AuthService {
     final response = await _apiService.post<Map<String, dynamic>>(
       ApiConstants.login,
       data: {
-        'emailOrMobile': emailOrMobile.trim(),
+        'email': emailOrMobile.trim(),
         'password': password,
+      },
+      fromJson: (json) => json as Map<String, dynamic>,
+    );
+
+    if (response.success && response.data != null) {
+      final token = response.data!['token'];
+      final restaurantId = response.data!['data']?['id'];
+
+      if (token != null && token.isNotEmpty) {
+        await saveAuthToken(token);
+      }
+      if (restaurantId != null && restaurantId.isNotEmpty) {
+        await saveRestaurantId(restaurantId);
+      }
+    }
+    return response;
+  }
+
+  // OTP Login - Send OTP
+  Future<ApiResponse<dynamic>> sendOtpLogin(String mobileNumber) async {
+    return await _apiService.post(
+      ApiConstants.otpLoginSend,
+      data: {'mobileNumber': mobileNumber.trim()},
+    );
+  }
+
+  // OTP Login - Verify OTP
+  Future<ApiResponse<Map<String, dynamic>>> verifyOtpLogin({
+    required String mobileNumber,
+    required String otp,
+  }) async {
+    final response = await _apiService.post<Map<String, dynamic>>(
+      ApiConstants.otpLoginVerify,
+      data: {
+        'mobileNumber': mobileNumber.trim(),
+        'otp': otp.trim(),
       },
       fromJson: (json) => json as Map<String, dynamic>,
     );
@@ -343,7 +379,7 @@ class AuthService {
   Future<ApiResponse<dynamic>> sendOtp(String emailOrMobile) async {
     return await _apiService.post(
       ApiConstants.sendOtp,
-      data: {'emailOrMobile': emailOrMobile.trim()},
+      data: {'phone': emailOrMobile.trim()},
     );
   }
 
