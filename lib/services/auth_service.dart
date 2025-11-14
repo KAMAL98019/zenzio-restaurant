@@ -29,19 +29,40 @@ class AuthService {
       var uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.register}');
       var request = http.MultipartRequest('POST', uri);
 
-      // Add required headers for client identification
+      // ❌ DO NOT SEND application/json for multipart
       request.headers.addAll({
-        'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'platform': 'Android', // Matching the platform from the error log
-        'User-Agent': 'Android', // Matching the platform from the error log
+        'platform': 'Android',
+        'User-Agent': 'Android',
         'mode': 'development',
         'clientId': ApiConstants.clientId,
       });
 
-      // Add text fields
-      request.fields['id'] = restaurant.id;
+      // ---------------------------
+      //  BASIC TEXT FIELDS
+      // ---------------------------
       request.fields['restaurant_name'] = restaurant.restaurantName;
+      request.fields['avg_cost_two'] = restaurant.avgCostTwo.toString();
+      request.fields['firstName'] = restaurant.firstName;
+      request.fields['lastName'] = restaurant.lastName;
+      request.fields['email'] = restaurant.email;
+      request.fields['phoneNumber'] = restaurant.phoneNumber;
+      request.fields['rest_contact_number'] = restaurant.restContactNumber;
+      request.fields['rest_email'] = restaurant.restEmail;
+      request.fields['agree_to_terms'] = restaurant.agreeToTerms.toString();
+      request.fields['status'] = restaurant.status;
+
+      // OPTIONAL FIELDS
+      if (restaurant.restWebsite != null) {
+        request.fields['rest_website'] = restaurant.restWebsite!;
+      }
+      if (restaurant.socialMedia != null) {
+        request.fields['social_media'] = restaurant.socialMedia!;
+      }
+
+      // ---------------------------
+      //   ADDRESS NESTED FIELDS
+      // ---------------------------
       request.fields['address[address]'] = restaurant.address.address;
       request.fields['address[city]'] = restaurant.address.city;
       request.fields['address[state]'] = restaurant.address.state;
@@ -49,152 +70,143 @@ class AuthService {
       request.fields['address[land_mark]'] = restaurant.address.landMark ?? '';
       request.fields['address[lat]'] = restaurant.address.lat.toString();
       request.fields['address[lng]'] = restaurant.address.lng.toString();
-      request.fields['avg_cost_two'] = restaurant.avgCostTwo.toString();
-      request.fields['rest_logo'] = restaurant.restLogo;
-      request.fields['firstName'] = restaurant.firstName;
-      request.fields['lastName'] = restaurant.lastName;
-      request.fields['email'] = restaurant.email;
-      request.fields['phoneNumber'] = restaurant.phoneNumber;
-      request.fields['rest_contact_number'] = restaurant.restContactNumber;
-      request.fields['rest_email'] = restaurant.restEmail;
-      if (restaurant.restWebsite != null) {
-        request.fields['rest_website'] = restaurant.restWebsite!;
-      }
-      if (restaurant.socialMedia != null) {
-        request.fields['social_media'] = restaurant.socialMedia!;
-      }
-      request.fields['cuisines'] = jsonEncode(restaurant.cuisines.map((e) => e.toJson()).toList());
-      request.fields['categories'] = jsonEncode(restaurant.categories.map((e) => e.toJson()).toList());
-      request.fields['operational_hours'] = jsonEncode(restaurant.operationalHours.map((e) => e.toJson()).toList());
+
+      // ---------------------------
+      //   ARRAY TYPE FIELDS
+      // ---------------------------
+      request.fields['cuisines'] = jsonEncode(
+        restaurant.cuisines.map((e) => e.toJson()).toList(),
+      );
+
+      request.fields['categories'] = jsonEncode(
+        restaurant.categories.map((e) => e.toJson()).toList(),
+      );
+
+      request.fields['operational_hours'] = jsonEncode(
+        restaurant.operationalHours.map((e) => e.toJson()).toList(),
+      );
+
+      // ---------------------------
+      //   DOCUMENTS (JSON STRING)
+      // ---------------------------
       request.fields['documents'] = jsonEncode(restaurant.documents.toJson());
-      request.fields['bankDetails'] = jsonEncode(restaurant.bankDetails.toJson());
-      request.fields['agree_to_terms'] = restaurant.agreeToTerms.toString();
-      request.fields['status'] = restaurant.status;
-      request.fields['deliveryType'] = restaurant.deliveryType;
-      request.fields['otpVerified'] = restaurant.otpVerified.toString();
-      request.fields['createdAt'] = restaurant.createdAt;
-      request.fields['updatedAt'] = restaurant.updatedAt;
 
-      if (restaurant.deliveryRadius != null) {
-        request.fields['deliveryRadius'] = restaurant.deliveryRadius.toString();
-      }
-      if (restaurant.deliveryZones != null) {
-        request.fields['deliveryZones'] = restaurant.deliveryZones!;
-      }
-      if (restaurant.minOrderAmount != null) {
-        request.fields['minOrderAmount'] = restaurant.minOrderAmount!;
-      }
-      if (restaurant.baseDeliveryFee != null) {
-        request.fields['baseDeliveryFee'] = restaurant.baseDeliveryFee!;
-      }
-      if (restaurant.otp != null) {
-        request.fields['otp'] = restaurant.otp!;
-      }
-      if (restaurant.otpExpiry != null) {
-        request.fields['otpExpiry'] = restaurant.otpExpiry!;
-      }
+      // ---------------------------
+      //   BANK DETAILS
+      // ---------------------------
+      request.fields['bankDetails'] = jsonEncode(
+        restaurant.bankDetails.toJson(),
+      );
 
-      // Add additional fields if provided
-      if (additionalFields != null) {
-        additionalFields.forEach((key, value) {
-          if (key != 'password') { // Password is handled separately
-            request.fields[key] = value;
-          }
-        });
-      }
-      // Password should be a direct field, not in additionalFields
-      // It's already added in RegistrationViewModel's additionalFields
-      // and will be added here if present.
-      // No need for a separate check here.
+      // ADDITIONAL FIELDS FROM VIEWMODEL
+      additionalFields?.forEach((key, value) {
+        request.fields[key] = value;
+      });
 
-      print('Starting file compression and upload...');
+      // ---------------------------
+      //   FILE UPLOADS
+      // ---------------------------
+      print("Processing files for upload...");
 
-      // Add compressed files with error handling
-      bool filesAdded = true;
-      
-      try {
-        await _addCompressedFileToRequest(request, 'rest_logo', restaurant.restLogo, isImage: true);
-      } catch (e) {
-        print('Error adding restaurant logo: $e');
-        filesAdded = false;
-      }
-      
-      try {
-        await _addCompressedFileToRequest(request, 'fssai_certificate', restaurant.documents.fssaiCertificateUrl, isImage: false);
-      } catch (e) {
-        print('Error adding FSSAI certificate: $e');
-        filesAdded = false;
-      }
-      
-      try {
-        await _addCompressedFileToRequest(request, 'gst_certificate', restaurant.documents.gstCertificateUrl, isImage: false);
-      } catch (e) {
-        print('Error adding GST certificate: $e');
-        filesAdded = false;
+      bool allFilesOk = true;
+
+      // Restaurant Logo (Image)
+      if (restaurant.restLogo.isNotEmpty) {
+        try {
+          await _addCompressedFileToRequest(
+            request,
+            'rest_logo',
+            restaurant.restLogo,
+            isImage: true,
+          );
+        } catch (e) {
+          print('Logo upload failed: $e');
+          allFilesOk = false;
+        }
       }
 
-      if (!filesAdded) {
-        return ApiResponse<Map<String, dynamic>>(
+      // FSSAI Certificate
+      if (restaurant.documents.fssaiCertificateUrl.isNotEmpty) {
+        try {
+          await _addCompressedFileToRequest(
+            request,
+            'fssai_certificate',
+            restaurant.documents.fssaiCertificateUrl,
+            isImage: false,
+          );
+        } catch (e) {
+          print('FSSAI upload failed: $e');
+          allFilesOk = false;
+        }
+      }
+
+      // GST Certificate
+      if (restaurant.documents.gstCertificateUrl.isNotEmpty) {
+        try {
+          await _addCompressedFileToRequest(
+            request,
+            'gst_certificate',
+            restaurant.documents.gstCertificateUrl,
+            isImage: false,
+          );
+        } catch (e) {
+          print('GST upload failed: $e');
+          allFilesOk = false;
+        }
+      }
+
+      if (!allFilesOk) {
+        return ApiResponse(
           success: false,
-          message: 'Error processing some files. Please check file sizes and formats.',
+          message:
+              "Some files could not be processed. Please check file size (max 2MB).",
         );
       }
 
-      print('Sending multipart request with compressed files...');
-      print('Total fields: ${request.fields.length}');
-      print('Total files: ${request.files.length}');
-      
+      // ---------------------------
+      //   SEND REQUEST
+      // ---------------------------
+      print("Sending registration request...");
       var response = await request.send();
       var responseString = await response.stream.bytesToString();
-      
-      print('Response status: ${response.statusCode}');
-      print('Response body: $responseString');
+
+      print("Register Status: ${response.statusCode}");
+      print("Register Body: $responseString");
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        try {
-          var jsonResponse = jsonDecode(responseString);
-          return ApiResponse<Map<String, dynamic>>(
-            success: true,
-            message: 'Registration successful',
-            data: jsonResponse['data'] ?? jsonResponse,
-          );
-        } catch (e) {
-          return ApiResponse<Map<String, dynamic>>(
-            success: true,
-            message: 'Registration successful',
-            data: {}, // Return an empty map if data parsing fails but registration is successful
-          );
-        }
-      } else if (response.statusCode == 413) {
-        return ApiResponse<Map<String, dynamic>>(
-          success: false,
-          message: 'File sizes are too large. Please use smaller files (max 2MB for documents, 1MB for images).',
+        var jsonResponse = jsonDecode(responseString);
+        return ApiResponse(
+          success: true,
+          message: "Registration successful",
+          data: jsonResponse["data"] ?? jsonResponse,
         );
-      } else {
-        var errorMessage = 'Registration failed';
-        try {
-          var errorJson = jsonDecode(responseString);
-          errorMessage = errorJson['error'] ?? errorJson['message'] ?? errorMessage;
-        } catch (e) {
-          errorMessage = 'HTTP ${response.statusCode}: $responseString';
-        }
-        return ApiResponse<Map<String, dynamic>>(
+      }
+
+      // HANDLE ERROR RESPONSE
+      try {
+        var errorJson = jsonDecode(responseString);
+        return ApiResponse(
           success: false,
-          message: errorMessage,
+          message: errorJson['message'] ?? "Registration failed",
+        );
+      } catch (_) {
+        return ApiResponse(
+          success: false,
+          message: "HTTP ${response.statusCode}: $responseString",
         );
       }
     } catch (e) {
-      print('Registration error: $e');
-      return ApiResponse<Map<String, dynamic>>(
+      print("Registration crash: $e");
+      return ApiResponse(
         success: false,
-        message: 'Network error: Please check your internet connection and try again.',
+        message: "Something went wrong. Check network and try again.",
       );
     }
   }
 
   Future<void> _addCompressedFileToRequest(
-    http.MultipartRequest request, 
-    String fieldName, 
+    http.MultipartRequest request,
+    String fieldName,
     String? filePath, {
     required bool isImage,
   }) async {
@@ -203,10 +215,12 @@ class AuthService {
         File originalFile = File(filePath);
         if (await originalFile.exists()) {
           final originalSize = originalFile.lengthSync();
-          print('Original $fieldName file size: ${(originalSize / 1024 / 1024).toStringAsFixed(2)}MB');
-          
+          print(
+            'Original $fieldName file size: ${(originalSize / 1024 / 1024).toStringAsFixed(2)}MB',
+          );
+
           File fileToUpload;
-          
+
           if (isImage) {
             fileToUpload = await _compressImage(originalFile, fieldName);
           } else {
@@ -214,23 +228,27 @@ class AuthService {
           }
 
           final compressedSize = fileToUpload.lengthSync();
-          print('Compressed $fieldName file size: ${(compressedSize / 1024 / 1024).toStringAsFixed(2)}MB');
+          print(
+            'Compressed $fieldName file size: ${(compressedSize / 1024 / 1024).toStringAsFixed(2)}MB',
+          );
 
           // Get file extension
           String extension = path.extension(filePath).toLowerCase();
-          if (isImage && !extension.contains('jpg') && !extension.contains('jpeg')) {
+          if (isImage &&
+              !extension.contains('jpg') &&
+              !extension.contains('jpeg')) {
             extension = '.jpg'; // Convert to jpg for compressed images
           }
 
           var multipartFile = await http.MultipartFile.fromPath(
             fieldName,
             fileToUpload.path,
-            filename: '${fieldName}_${DateTime.now().millisecondsSinceEpoch}$extension',
+            filename:
+                '${fieldName}_${DateTime.now().millisecondsSinceEpoch}$extension',
           );
-          
+
           request.files.add(multipartFile);
           print('Successfully added compressed file: $fieldName');
-
         } else {
           print('File does not exist: $filePath');
           throw Exception('File not found: $filePath');
@@ -248,7 +266,7 @@ class AuthService {
   Future<File> _compressImage(File originalFile, String fieldName) async {
     try {
       final originalSize = originalFile.lengthSync();
-      
+
       // If image is already small enough, return original
       if (originalSize <= _maxImageSize) {
         print('$fieldName image is already within size limit');
@@ -256,11 +274,11 @@ class AuthService {
       }
 
       print('Compressing $fieldName image...');
-      
+
       // Read and decode image
       final imageBytes = await originalFile.readAsBytes();
       final image = img.decodeImage(imageBytes);
-      
+
       if (image == null) {
         print('Failed to decode image: $fieldName');
         return originalFile;
@@ -277,8 +295,8 @@ class AuthService {
 
       // Resize image
       img.Image resizedImage = img.copyResize(
-        image, 
-        width: newWidth, 
+        image,
+        width: newWidth,
         height: newHeight,
         interpolation: img.Interpolation.linear,
       );
@@ -288,26 +306,37 @@ class AuthService {
 
       // Compress image
       final compressedBytes = img.encodeJpg(resizedImage, quality: quality);
-      
+
       if (compressedBytes.length > _maxImageSize * 1.2) {
         // If still too large, reduce quality further
         quality = (quality * 0.7).toInt().clamp(20, 50);
-        final moreCompressedBytes = img.encodeJpg(resizedImage, quality: quality);
-        
+        final moreCompressedBytes = img.encodeJpg(
+          resizedImage,
+          quality: quality,
+        );
+
         // Create temporary file
-        final tempFile = File('${originalFile.parent.path}/compressed_${fieldName}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        final tempFile = File(
+          '${originalFile.parent.path}/compressed_${fieldName}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
         await tempFile.writeAsBytes(moreCompressedBytes);
-        
-        print('Image heavily compressed: ${(originalSize / 1024 / 1024).toStringAsFixed(2)}MB -> ${(tempFile.lengthSync() / 1024 / 1024).toStringAsFixed(2)}MB (quality: $quality%)');
+
+        print(
+          'Image heavily compressed: ${(originalSize / 1024 / 1024).toStringAsFixed(2)}MB -> ${(tempFile.lengthSync() / 1024 / 1024).toStringAsFixed(2)}MB (quality: $quality%)',
+        );
         return tempFile;
       }
-      
+
       // Create temporary file
-      final tempFile = File('${originalFile.parent.path}/compressed_${fieldName}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final tempFile = File(
+        '${originalFile.parent.path}/compressed_${fieldName}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
       await tempFile.writeAsBytes(compressedBytes);
 
-      print('Image compressed: ${(originalSize / 1024 / 1024).toStringAsFixed(2)}MB -> ${(tempFile.lengthSync() / 1024 / 1024).toStringAsFixed(2)}MB (quality: $quality%)');
-      
+      print(
+        'Image compressed: ${(originalSize / 1024 / 1024).toStringAsFixed(2)}MB -> ${(tempFile.lengthSync() / 1024 / 1024).toStringAsFixed(2)}MB (quality: $quality%)',
+      );
+
       return tempFile;
     } catch (e) {
       print('Image compression failed for $fieldName: $e');
@@ -318,19 +347,22 @@ class AuthService {
   Future<File> _compressDocument(File originalFile, String fieldName) async {
     try {
       final originalSize = originalFile.lengthSync();
-      
+
       // If document is already small enough, return original
       if (originalSize <= _maxDocumentSize) {
         print('$fieldName document is already within size limit');
         return originalFile;
       }
 
-      print('Document $fieldName is too large: ${(originalSize / 1024 / 1024).toStringAsFixed(2)}MB');
-      
+      print(
+        'Document $fieldName is too large: ${(originalSize / 1024 / 1024).toStringAsFixed(2)}MB',
+      );
+
       // For documents, we return the original but the server might reject it
       // In a real app, you might want to implement PDF compression or other strategies
-      throw Exception('Document too large: ${(originalSize / 1024 / 1024).toStringAsFixed(2)}MB. Maximum allowed: ${_maxDocumentSize / 1024 / 1024}MB');
-      
+      throw Exception(
+        'Document too large: ${(originalSize / 1024 / 1024).toStringAsFixed(2)}MB. Maximum allowed: ${_maxDocumentSize / 1024 / 1024}MB',
+      );
     } catch (e) {
       print('Document handling failed for $fieldName: $e');
       rethrow;
@@ -344,10 +376,7 @@ class AuthService {
   }) async {
     final response = await _apiService.post<Map<String, dynamic>>(
       ApiConstants.login,
-      data: {
-        'email': emailOrMobile.trim(),
-        'password': password,
-      },
+      data: {'email': emailOrMobile.trim(), 'password': password},
       fromJson: (json) => json as Map<String, dynamic>,
     );
 
@@ -380,10 +409,7 @@ class AuthService {
   }) async {
     final response = await _apiService.post<Map<String, dynamic>>(
       ApiConstants.verifyPhoneOtp,
-      data: {
-        'phone': mobileNumber.trim(),
-        'otp': otp.trim(),
-      },
+      data: {'phone': mobileNumber.trim(), 'otp': otp.trim()},
       fromJson: (json) => json as Map<String, dynamic>,
     );
 
@@ -416,15 +442,14 @@ class AuthService {
   }) async {
     return await _apiService.post(
       ApiConstants.verifyPhoneOtp,
-      data: {
-        'phone': mobileNumber.trim(),
-        'otp': otp.trim(),
-      },
+      data: {'phone': mobileNumber.trim(), 'otp': otp.trim()},
     );
   }
 
   // Forgot Password - Send OTP
-  Future<ApiResponse<dynamic>> sendForgotPasswordOtp(String emailOrMobile) async {
+  Future<ApiResponse<dynamic>> sendForgotPasswordOtp(
+    String emailOrMobile,
+  ) async {
     return await _apiService.post(
       ApiConstants.sendForgotPasswordOtp,
       data: {'phone': emailOrMobile.trim()},
@@ -438,10 +463,7 @@ class AuthService {
   }) async {
     return await _apiService.post(
       ApiConstants.verifyForgotPasswordOtp,
-      data: {
-        'phone': emailOrMobile.trim(),
-        'otp': otp.trim(),
-      },
+      data: {'phone': emailOrMobile.trim(), 'otp': otp.trim()},
     );
   }
 
@@ -452,10 +474,7 @@ class AuthService {
   }) async {
     return await _apiService.post(
       ApiConstants.resetPassword,
-      data: {
-        'emailOrMobile': emailOrMobile.trim(),
-        'newPassword': newPassword,
-      },
+      data: {'emailOrMobile': emailOrMobile.trim(), 'newPassword': newPassword},
     );
   }
 
@@ -467,7 +486,7 @@ class AuthService {
     final status = isOnline ? "ONLINE" : "OFFLINE";
     return await _apiService.post(
       ApiConstants.restaurantStatus(),
-      data: {  "rest_id": restaurantId, 'status': status},
+      data: {"rest_id": restaurantId, 'status': status},
     );
   }
 

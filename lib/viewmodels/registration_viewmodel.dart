@@ -54,7 +54,8 @@ class RegistrationViewModel extends ChangeNotifier {
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController phoneNumberController = TextEditingController();
-  final TextEditingController restContactNumberController = TextEditingController();
+  final TextEditingController restContactNumberController =
+      TextEditingController();
   final TextEditingController restEmailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController otpController = TextEditingController();
@@ -73,8 +74,10 @@ class RegistrationViewModel extends ChangeNotifier {
   final TextEditingController accountTypeController = TextEditingController();
   final TextEditingController fssaiNumberController = TextEditingController();
   final TextEditingController gstNumberController = TextEditingController();
-  final TextEditingController tradeLicenseNumberController = TextEditingController();
-  final TextEditingController otherDocumentTypeController = TextEditingController();
+  final TextEditingController tradeLicenseNumberController =
+      TextEditingController();
+  final TextEditingController otherDocumentTypeController =
+      TextEditingController();
   String? tradeLicensePath;
   String? otherDocumentPath;
 
@@ -130,7 +133,10 @@ class RegistrationViewModel extends ChangeNotifier {
     operationalHours = restaurant!.operationalHours;
     selectedCuisines = restaurant!.cuisines.map((e) => e.id).toList();
     selectedCategories = restaurant!.categories.map((e) => e.id).toList();
-    restaurantLocation = LatLng(restaurant!.address.lat, restaurant!.address.lng);
+    restaurantLocation = LatLng(
+      restaurant!.address.lat,
+      restaurant!.address.lng,
+    );
   }
 
   void setRestaurantLogo(String path) {
@@ -426,82 +432,56 @@ class RegistrationViewModel extends ChangeNotifier {
 
   Future<bool> submitRegistration() async {
     if (!validateStep3()) return false;
-
-    if (!await _validateAllFiles()) {
-      return false;
-    }
+    if (!await _validateAllFiles()) return false;
 
     _setLoading(true);
 
     try {
-      final restaurant = Restaurant(
-        id: '',
-        restaurantName: restaurantNameController.text.trim(),
-        avgCostTwo: avgCostController.text.trim(),
-        restLogo: restaurantLogoPath ?? '',
-        firstName: firstNameController.text.trim(),
-        lastName: lastNameController.text.trim(),
-        email: emailController.text.trim(),
-        phoneNumber: phoneNumberController.text.trim(),
-        restContactNumber: restContactNumberController.text.trim(),
-        restEmail: restEmailController.text.trim(),
-        cuisines: [], // Will be populated later
-        categories: [], // Will be populated later
-        operationalHours: operationalHours,
-        documents: Documents(
-          fssaiNumber: fssaiNumberController.text.trim(),
-          fssaiCertificateUrl: fssaiCertificatePath ?? '',
-          gstNumber: gstNumberController.text.trim(),
-          gstCertificateUrl: gstCertificatePath ?? '',
-          tradeLicenseNumber: tradeLicenseNumberController.text.trim(),
-          tradeLicenseUrl: tradeLicensePath ?? '',
-          otherDocumentType: otherDocumentTypeController.text.trim(),
-          otherDocumentUrl: otherDocumentPath ?? '',
-        ),
-        bankDetails: BankDetails(
-          bankName: bankNameController.text.trim(),
-          bankAccountName: bankAccountNameController.text.trim(),
-          accountNumber: accountNumberController.text.trim(),
-          ifscCode: ifscCodeController.text.trim(),
-          accountType: accountTypeController.text.trim(),
-        ),
-        agreeToTerms: _agreeToTerms,
-        status: 'pending',
-        deliveryType: 'RADIUS',
-        otpVerified: _isOtpVerified, // Use the new state
-        createdAt: DateTime.now().toIso8601String(),
-        updatedAt: DateTime.now().toIso8601String(),
-        address: Address(
-          address: restaurantAddressController.text.trim(),
-          city: cityController.text.trim(),
-          state: stateController.text.trim(),
-          pincode: pincodeController.text.trim(),
-          landMark: landmarkController.text.trim(),
-          lat: restaurantLocation?.latitude ?? 0.0,
-          lng: restaurantLocation?.longitude ?? 0.0,
-        ),
-      );
-
-      final Map<String, String> additionalFields = {
+      final payload = {
+        "restaurant_name": restaurantNameController.text.trim(),
+        "firstName": firstNameController.text.trim(),
+        "lastName": lastNameController.text.trim(),
+        "email": emailController.text.trim(),
         "password": passwordController.text.trim(),
+        "phoneNumber": phoneNumberController.text.trim(),
+        "photo": restaurantLogoPath ?? "",
+        "avg_cost_two": avgCostController.text.trim(),
+
+        "address": {
+          "city": cityController.text.trim(),
+          "state": stateController.text.trim(),
+          "pincode": pincodeController.text.trim(),
+          "address": restaurantAddressController.text.trim(),
+          "land_mark": landmarkController.text.trim(),
+          "lat": restaurantLocation?.latitude ?? 0.0,
+          "lng": restaurantLocation?.longitude ?? 0.0,
+        },
+
+        "bank_details": {
+          "bank_name": bankNameController.text.trim(),
+          "account_number": accountNumberController.text.trim(),
+          "ifsc_code": ifscCodeController.text.trim(),
+          "account_type": accountTypeController.text.trim(),
+        },
+
+        "documents": {
+          "fssaiNumber": fssaiNumberController.text.trim(),
+          "fssaiCertificateUrl": fssaiCertificatePath ?? "",
+          "gstNumber": gstNumberController.text.trim(),
+          "gstCertificateUrl": gstCertificatePath ?? "",
+          "tradeLicenseNumber": tradeLicenseNumberController.text.trim(),
+          "tradeLicenseUrl": tradeLicensePath ?? "",
+          "otherDocumentType": otherDocumentTypeController.text.trim(),
+          "otherDocumentUrl": otherDocumentPath ?? "",
+        },
       };
 
-      print('Reaching registration with data: ${jsonEncode(restaurant.toJson())}');
+      print("📤 Final Registration Payload → ${jsonEncode(payload)}");
 
-      final response = await _authService.register(
-        restaurant,
-        additionalFields: additionalFields,
-      );
-      
+      final response = await _authService.register(payload as Restaurant);
+
       if (response.success) {
         _showToast('Registration successful!', isError: false);
-        if (response.data != null && response.data!['id'] != null) {
-          final restaurantId = response.data!['id'] as String;
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('restaurant_id', restaurantId);
-          print('Restaurant ID stored: $restaurantId');
-        }
-        _setLoading(false); // Ensure loading is off before navigation
         Navigator.pushAndRemoveUntil(
           navigatorKey.currentContext!,
           MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -509,21 +489,16 @@ class RegistrationViewModel extends ChangeNotifier {
         );
         return true;
       } else {
-        _setLoading(false); // Ensure loading is off on failure
-        _showToast(
-          response.message ?? 'Registration failed. Please check all fields.',
-        );
+        _showToast(response.message ?? 'Registration failed.');
         return false;
       }
     } catch (e) {
-      _setLoading(false); // Ensure loading is off on error
-      _showToast('Error: ${e.toString()}');
+      _showToast('Error: $e');
       return false;
+    } finally {
+      _setLoading(false);
     }
-    // The finally block is no longer strictly necessary for _setLoading(false)
-    // as it's handled in all exit paths.
   }
-
 
   Future<bool> _validateAllFiles() async {
     bool allFilesValid = true;
@@ -606,6 +581,7 @@ class RegistrationViewModel extends ChangeNotifier {
     _isOtpVerified = value;
     notifyListeners();
   }
+
   void resetOtpState() {
     _isOtpSent = false;
     _isOtpVerified = false;
