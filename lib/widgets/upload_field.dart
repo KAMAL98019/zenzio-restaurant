@@ -20,7 +20,7 @@ class UploadField extends StatefulWidget {
     this.isOptional = false,
     required this.onFileSelected,
     this.allowImages = true,
-    this.allowDocuments = true,
+    this.allowDocuments = true, String? currentFilePath,
   }) : super(key: key);
 
   @override
